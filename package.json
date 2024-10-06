@@ -1,11 +1,48 @@
 {
   "name": "jest-neat-runner",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/whtswrng/jest-neat-runner"
   },
-  "author": "",
-  "license": "ISC"
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": {
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@jest/console": "^29.7.0",
+    "@jest/environment": "^29.7.0",
+    "@jest/test-result": "^29.7.0",
+    "@jest/transform": "^29.7.0",
+    "@jest/types": "^29.6.3",
+    "@types/node": "*",
+    "chalk": "^4.0.0",
+    "emittery": "^0.13.1",
+    "graceful-fs": "^4.2.9",
+    "jest-docblock": "^29.7.0",
+    "jest-environment-node": "^29.7.0",
+    "jest-haste-map": "^29.7.0",
+    "jest-leak-detector": "^29.7.0",
+    "jest-message-util": "^29.7.0",
+    "jest-resolve": "^29.7.0",
+    "jest-runtime": "^29.7.0",
+    "jest-util": "^29.7.0",
+    "jest-watcher": "^29.7.0",
+    "jest-worker": "^29.7.0",
+    "p-limit": "^3.1.0",
+    "source-map-support": "0.5.13"
+  },
+  "devDependencies": {
+  },
+  "engines": {
+    "node": "^14.15.0 || ^16.10.0 || >=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "gitHead": "4e56991693da7cd4c3730dc3579a1dd1403ee630"
 }

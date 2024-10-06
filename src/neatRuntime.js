@@ -64,9 +64,12 @@ class NeatRuntime {
       );
 
       // actual require!
-      const obj = fullModulePath.includes('react')
-        ? require(fullModulePath)
-        : callOriginal.call(this);
+      const obj = callOriginal.call(this);
+
+      // actual require!
+      // const obj = fullModulePath.includes('react')
+      //   ? require(fullModulePath)
+      //   : callOriginal.call(this);
 
       if (typeof obj === 'object') {
         scope.cachedModules[fullPath] = false;
