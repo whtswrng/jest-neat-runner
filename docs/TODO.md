@@ -1,0 +1,2 @@
+- Cache for transferred files
+- Cache for node_modules

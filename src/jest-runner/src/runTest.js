@@ -258,29 +258,29 @@ async function runTest(
       result.leaks = false;
     }
 
-    if (result.failureMessage)
-      return runTest(
-        path,
-        globalConfig,
-        config,
-        resolver,
-        context,
-        sendMessageToJest,
-        true
-      );
+    // if (result.failureMessage)
+    //   return runTest(
+    //     path,
+    //     globalConfig,
+    //     config,
+    //     resolver,
+    //     context,
+    //     sendMessageToJest,
+    //     true
+    //   );
     return result;
   } catch (e) {
-    if (!previousRunFailed) {
-      return runTest(
-        path,
-        globalConfig,
-        config,
-        resolver,
-        context,
-        sendMessageToJest,
-        true
-      );
-    }
+    // if (!previousRunFailed) {
+    //   return runTest(
+    //     path,
+    //     globalConfig,
+    //     config,
+    //     resolver,
+    //     context,
+    //     sendMessageToJest,
+    //     true
+    //   );
+    // }
     throw e;
   }
 }
