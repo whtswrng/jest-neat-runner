@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/whtswrng/jest-neat-runner"
+    "url": "git+https://github.com/whtswrng/jest-neat-runner.git"
   },
   "license": "MIT",
   "main": "./build/index.js",
@@ -42,8 +42,16 @@
   "publishConfig": {
     "access": "public"
   },
-  "gitHead": "4e56991693da7cd4c3730dc3579a1dd1403ee630",
   "devDependencies": {
     "nodemon": "^3.1.7"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/whtswrng/jest-neat-runner/issues"
+  },
+  "homepage": "https://github.com/whtswrng/jest-neat-runner#readme",
+  "directories": {
+    "doc": "docs"
+  },
+  "author": "",
+  "description": ""
 }
