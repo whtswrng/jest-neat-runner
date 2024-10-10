@@ -1,2 +1,15 @@
 - Cache for transferred files
 - Cache for node_modules
+- README
+    - The problem (slow unit tests)
+    - Solution
+        - Opens varius optimization capabilities to the user
+    - Capabilities
+        - Dynamic lazy loading
+        - Reporting of slow modules
+        - ???
+
+- Articles
+    - How to speed up the jest in 2024
+    - Optimizing build pipelines for Javascript applications in 2024
+    - 

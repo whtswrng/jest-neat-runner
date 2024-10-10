@@ -2,7 +2,21 @@ const Runtime = require("jest-runtime");
 const fs = require("fs");
 const path = require("path");
 
-const whitelistedModules = ["core-js", "dom"];
+const modulesWithSideEffects = ["core-js", "@testing-library/jest-dom", "i18n", "@testing-library/user-event"];
+
+const NEAT_CONFIG = {
+  NEAT_RUNTIME_CACHE: "NEAT_RUNTIME_CACHE",
+  NEAT_MODULE_REPORT: "NEAT_MODULE_REPORT",
+  NEAT_TRANSFORM_CACHE: "NEAT_TRANSFORM_CACHE",
+  NEAT_TRANSFORM_REPORT: "NEAT_TRANSFORM_REPORT",
+  NEAT_REPORT_MODULE_LOAD_ABOVE_MS: "NEAT_REPORT_MODULE_LOAD_ABOVE_MS",
+  NEAT_REPORT_ONLY_NODE_MODULES: "NEAT_REPORT_ONLY_NODE_MODULES",
+  NEAT_NODE_REQUIRE_MODULES: "NEAT_NODE_REQUIRE_MODULES",
+  NEAT_VERBOSE: "NEAT_VERBOSE",
+  NEAT_BENCHMARK: "NEAT_BENCHMARK",
+};
+
+const transformedFilesCache = new Map();
 
 class NeatRuntime {
   cachedModules = {};
@@ -14,13 +28,27 @@ class NeatRuntime {
   _runtimeInstance = undefined;
   prevRunFailed = false;
   moduleTimerList = [];
+  globals = undefined;
+  currentProcessingNodeModule = false;
+  transformedFileExtensions = new Map();
+  loadedModulesReports = new Map();
+  processedModules = new Map();
 
   constructor(_runtimeInstance, prevRunFailed) {
+    const scope = this;
     this.prevRunFailed = prevRunFailed;
     this._runtimeInstance = _runtimeInstance;
     this.testPath = _runtimeInstance._testPath;
+    this.globals = _runtimeInstance._config.globals;
     this.cacheFilePath = path.join(_runtimeInstance._config.cacheDirectory, simpleHash(_runtimeInstance._testPath));
+    this.isTransformReportOn = this.globals[NEAT_CONFIG.NEAT_TRANSFORM_REPORT];
+    this.isTransformCacheOn = this.globals[NEAT_CONFIG.NEAT_TRANSFORM_CACHE];
+    this.isModuleReportOn = this.globals[NEAT_CONFIG.NEAT_MODULE_REPORT];
+    this.isRuntimeCacheOn = this.globals[NEAT_CONFIG.NEAT_RUNTIME_CACHE];
+    this.reportInMs = this.globals[NEAT_CONFIG.NEAT_REPORT_MODULE_LOAD_ABOVE_MS];
+
     this.wrapRequireModule();
+    this.wrapTransformFile();
 
     if (prevRunFailed) {
       console.log("PREV RUN FAILED!");
@@ -33,10 +61,49 @@ class NeatRuntime {
     // handle finish
     _runtimeInstance.done = () => {
       fs.writeFileSync(this.cacheFilePath, JSON.stringify(this.cachedModules));
-      this.moduleTimerList.sort((a, b) => b.timeInMs - a.timeInMs);
-      for(const m of this.moduleTimerList) {
-        console.log(`\x1b[33mFrom ${m.from} -> ${m.module} in ${m.timeInMs}`);
+      if (scope.reportInMs) {
+        this.moduleTimerList.sort((a, b) => b.timeInMs - a.timeInMs);
+        for (const m of this.moduleTimerList) {
+          if (NEAT_CONFIG.NEAT_REPORT_ONLY_NODE_MODULES && m.module.includes("./")) continue;
+          console.log(`\x1b[33mFrom ${m.from} -> ${m.module} in ${m.timeInMs}ms`);
+        }
+        console.log(`Skipped ${this.dummyModuleCount} modules`);
       }
+
+      if (scope.isTransformReportOn) {
+        console.log(`📄 Files transformed 📄`);
+        console.table(scope.transformedFileExtensions);
+      }
+
+      if (scope.isModuleReportOn) {
+        console.log(`📦 MODULE LOAD REPORT 📦`);
+        console.table(scope.loadedModulesReports);
+      }
+    };
+  }
+
+  wrapTransformFile() {
+    if (!this.isTransformCacheOn && !this.isTransformReportOn) return;
+
+    const orig = this._runtimeInstance.transformFile;
+    const scope = this;
+    this._runtimeInstance.transformFile = function (...args) {
+      const filePath = args[0];
+      const cachedF = transformedFilesCache.get(filePath);
+
+      const start = Date.now();
+      const r = cachedF && scope.isTransformCacheOn ? transformedFilesCache.get(filePath) : orig.apply(this, args);
+      const end = Date.now();
+
+      const fileExtension = path.extname(filePath);
+      transformedFilesCache.set(filePath, r);
+
+      const fileExtensionReport = scope.transformedFileExtensions.get(fileExtension);
+      scope.transformedFileExtensions.set(fileExtension, {
+        count: (fileExtensionReport?.count ?? 0) + 1,
+        timeInMs: (fileExtensionReport?.timeInMs ?? 0) + (end - start),
+      });
+      return r;
     };
   }
 
@@ -52,21 +119,42 @@ class NeatRuntime {
 
       const callOriginal = () => orig.apply(this, args);
 
-      if (scope.shouldSkipLoadingModule(fullPath)) {
-        if (whitelistedModules.some((m) => fullPath.includes(m))) {
-          scope.realModuleCount++;
+      if (scope.isRuntimeCacheOn && scope.shouldSkipLoadingModule(fullPath)) {
+        if (modulesWithSideEffects.some((m) => fullPath.includes(m))) {
+          // these modules have side-effects, we need to load them
           return callOriginal();
         }
         return scope.createEmptyObj(from, modulePath);
       }
 
-      const obj = scope.requireModule(from, modulePath, callOriginal);
+      const nodeRequireModules = scope.globals[NEAT_CONFIG.NEAT_NODE_REQUIRE_MODULES] ?? [];
+      let loadedModule;
+
+      if (nodeRequireModules.length > 0) {
+        const p = scope._runtimeInstance._resolveCjsModule(from, modulePath);
+        if (nodeRequireModules.some((m) => p.includes(m))) {
+          const start = Date.now();
+          if (!scope.currentProcessingNodeModule) scope.currentProcessingNodeModule = p;
+          loadedModule = require(p);
+          const end = Date.now();
+          if (scope.currentProcessingNodeModule === p && scope.globals[NEAT_CONFIG.NEAT_VERBOSE]) {
+            console.log(`\x1b[32mModule ${p} was loaded via "Node" require in ${end - start}ms`);
+            if (scope.globals[NEAT_CONFIG.NEAT_BENCHMARK]) {
+              const endInMs = scope.doBenchmarkLoad(callOriginal);
+              console.log(`\x1b[31mModule ${p} was loaded via "jest" require in ${endInMs}ms`);
+            }
+          }
+        }
+      }
+
+      if (!loadedModule) loadedModule = scope.requireModule(from, modulePath, callOriginal);
 
       // proxy listen
-      if (typeof obj === "object") {
+      if (typeof loadedModule === "object") {
         scope.cachedModules[fullPath] = false;
-        const proxy = new Proxy(obj, {
+        const proxy = new Proxy(loadedModule, {
           get(target, prop, receiver) {
+            // property was visited!
             scope.cachedModules[fullPath] = true;
             return Reflect.get(target, prop, receiver);
           },
@@ -74,7 +162,7 @@ class NeatRuntime {
         return proxy;
       }
 
-      return obj;
+      return loadedModule;
     };
   }
 
@@ -83,15 +171,34 @@ class NeatRuntime {
     return cache && cache[fullPath] !== undefined && cache[fullPath] === false;
   }
 
+  doBenchmarkLoad(originalCall) {
+    const start = Date.now();
+    originalCall();
+    const end = Date.now();
+    return end - start;
+  }
+
   requireModule(from, modulePath, originalRequire) {
     const fullModulePath = this._runtimeInstance._resolveCjsModule(from, modulePath);
 
     const start = Date.now();
     const o = originalRequire();
     const end = Date.now();
-    const diff = end-start;
+    const diff = end - start;
 
-    if(diff > 150 && fullModulePath.includes('node_modules')) this.moduleTimerList.push({from: from, module: modulePath, timeInMs: diff});
+    // check if we're processing a node_module
+    if(!modulePath.includes('./') && !this.processedModules.has(modulePath)) {
+      this.processedModules.set(modulePath, true);
+      const origin = 'node_modules';
+      const report = this.loadedModulesReports.get(origin);
+      this.loadedModulesReports.set(origin, {
+        count: (report?.count ?? 0) + 1,
+        timeInMs: (report?.timeInMs ?? 0) + diff,
+      });
+    }
+
+    if (diff > (this.reportInMs ?? 300) && fullModulePath.includes("node_modules"))
+      this.moduleTimerList.push({ from: from, module: modulePath, timeInMs: diff });
 
     return o;
   }
@@ -111,16 +218,6 @@ class NeatRuntime {
   }
 }
 
-const WrappedClass = new Proxy(Runtime.default, {
-  construct(target, args) {
-    const config = args[5];
-    const instance = new target(...args);
-    const r = new NeatRuntime(instance, config.previousRunFailed);
-
-    return instance;
-  },
-});
-
 function simpleHash(str) {
   let hash = 0;
 
@@ -133,5 +230,15 @@ function simpleHash(str) {
 
   return hash.toString() + "_" + fileName;
 }
+
+const WrappedClass = new Proxy(Runtime.default, {
+  construct(target, args) {
+    const config = args[5];
+    const instance = new target(...args);
+    const r = new NeatRuntime(instance, config.previousRunFailed);
+
+    return instance;
+  },
+});
 
 module.exports = WrappedClass;

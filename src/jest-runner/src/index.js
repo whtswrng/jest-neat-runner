@@ -48,7 +48,6 @@ class TestRunner extends EmittingTestRunner {
 
               await this.#eventEmitter.emit('test-file-start', [test]);
 
-              console.log('in band run!');
               return runTest(
                 test.path,
                 this._globalConfig,
