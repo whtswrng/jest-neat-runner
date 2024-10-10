@@ -1,5 +1,5 @@
 ## What and Why?
-We were able to get people on the moon with 64KB of memory and 43KHz CPU, and yet in 2024, I'm not able to run simple jest suite without burning all my RAM and CPU and waiting for an eternity for them to finish. This packages should help you with identifying your jest's performance bottlenecks and improve your performance.
+We were able to get people on the moon with 64KB of memory and 43KHz CPU, and yet in 2024, I'm not able to run simple jest suite without burning all my RAM and CPU and waiting for an eternity for them to finish. This package should help you with identifying your jest's performance bottlenecks and most importantly **boost jest's performance**.
 
 ## How does it work?
 
