@@ -5,15 +5,17 @@ const path = require("path");
 const globalModulesWithSideEffects = ["i18n"];
 
 const NEAT_CONFIG = {
+  NEAT_DEBUG: "NEAT_DEBUG",
   NEAT_RUNTIME_CACHE: "NEAT_RUNTIME_CACHE",
-  NEAT_MODULE_REPORT: "NEAT_MODULE_REPORT",
   NEAT_TRANSFORM_CACHE: "NEAT_TRANSFORM_CACHE",
-  NEAT_TRANSFORM_REPORT: "NEAT_TRANSFORM_REPORT",
+  NEAT_REPORT_MODULE: "NEAT_REPORT_MODULE",
+  NEAT_REPORT_TRANSFORM: "NEAT_REPORT_TRANSFORM",
   NEAT_REPORT_MODULE_LOAD_ABOVE_MS: "NEAT_REPORT_MODULE_LOAD_ABOVE_MS",
   NEAT_REPORT_ONLY_NODE_MODULES: "NEAT_REPORT_ONLY_NODE_MODULES",
-  NEAT_NODE_REQUIRE_MODULES: "NEAT_NODE_REQUIRE_MODULES",
-  NEAT_VERBOSE: "NEAT_VERBOSE",
-  NEAT_BENCHMARK: "NEAT_BENCHMARK",
+  NEAT_MODULES_WITH_SIDE_EFFECTS: "NEAT_MODULES_WITH_SIDE_EFFECTS",
+  // NEAT_NODE_REQUIRE_MODULES: "NEAT_NODE_REQUIRE_MODULES",
+  // NEAT_VERBOSE: "NEAT_VERBOSE",
+  // NEAT_BENCHMARK: "NEAT_BENCHMARK",
 };
 
 const transformedFilesCache = new Map();
@@ -36,19 +38,20 @@ class NeatRuntime {
 
   constructor(_runtimeInstance, prevRunFailed) {
     const scope = this;
+
     this.prevRunFailed = prevRunFailed;
     this._runtimeInstance = _runtimeInstance;
     this.testPath = _runtimeInstance._testPath;
     this.globals = _runtimeInstance._config.globals;
     this.cacheFilePath = path.join(_runtimeInstance._config.cacheDirectory, simpleHash(_runtimeInstance._testPath));
-    this.isTransformReportOn = this.globals[NEAT_CONFIG.NEAT_TRANSFORM_REPORT];
+    this.isTransformReportOn = this.globals[NEAT_CONFIG.NEAT_REPORT_TRANSFORM];
     this.isTransformCacheOn = this.globals[NEAT_CONFIG.NEAT_TRANSFORM_CACHE];
-    this.isModuleReportOn = this.globals[NEAT_CONFIG.NEAT_MODULE_REPORT];
+    this.isModuleReportOn = this.globals[NEAT_CONFIG.NEAT_REPORT_MODULE];
     this.isRuntimeCacheOn = this.globals[NEAT_CONFIG.NEAT_RUNTIME_CACHE];
     this.reportInMs = this.globals[NEAT_CONFIG.NEAT_REPORT_MODULE_LOAD_ABOVE_MS];
+    this.modulesWithSideEffects = this.globals[NEAT_CONFIG.NEAT_MODULES_WITH_SIDE_EFFECTS] ?? [];
 
-    if (prevRunFailed) {
-      console.log("PREV RUN FAILED!");
+    if (global._NEAT_REMOVE_CACHE) {
       fs.writeFileSync(this.cacheFilePath, JSON.stringify({}));
     }
 
@@ -58,28 +61,33 @@ class NeatRuntime {
     this.wrapRequireModule();
     this.wrapTransformFile();
 
-    // handle finish
-    _runtimeInstance.done = () => {
-      fs.writeFileSync(this.cacheFilePath, JSON.stringify(this.cachedModules));
-      if (scope.reportInMs) {
-        this.moduleTimerList.sort((a, b) => b.timeInMs - a.timeInMs);
-        for (const m of this.moduleTimerList) {
-          if (NEAT_CONFIG.NEAT_REPORT_ONLY_NODE_MODULES && m.module.includes("./")) continue;
-          console.log(`\x1b[33mFrom ${m.from} -> ${m.module} in ${m.timeInMs}ms`);
-        }
-        console.log(`Skipped ${this.dummyModuleCount} modules`);
-      }
-
-      if (scope.isTransformReportOn) {
-        console.log(`📄 Files transformed 📄`);
-        console.table(scope.transformedFileExtensions);
-      }
-
-      if (scope.isModuleReportOn) {
-        console.log(`📦 MODULE LOAD REPORT 📦`);
-        console.table(scope.loadedModulesReports);
-      }
+    const origTeardown = _runtimeInstance.teardown;
+    _runtimeInstance.teardown = function (...args) {
+      scope.done();
+      return origTeardown.apply(this, args);
     };
+  }
+
+  done() {
+    fs.writeFileSync(this.cacheFilePath, JSON.stringify(this.cachedModules));
+    if (this.reportInMs) {
+      this.moduleTimerList.sort((a, b) => b.timeInMs - a.timeInMs);
+      for (const m of this.moduleTimerList) {
+        if (NEAT_CONFIG.NEAT_REPORT_ONLY_NODE_MODULES && m.module.includes("./")) continue;
+        console.log(`\x1b[33mFrom ${m.from} -> ${m.module} in ${m.timeInMs}ms`);
+      }
+      console.log(`Skipped ${this.dummyModuleCount} modules`);
+    }
+
+    if (this.isTransformReportOn) {
+      console.log(`📄 Files transformed 📄`);
+      console.table(this.transformedFileExtensions);
+    }
+
+    if (this.isModuleReportOn) {
+      console.log(`📦 MODULE LOAD REPORT 📦`);
+      console.table(this.loadedModulesReports);
+    }
   }
 
   wrapTransformFile() {
@@ -108,7 +116,7 @@ class NeatRuntime {
   }
 
   wrapRequireModule() {
-    const modulesWithSideEffects = [...globalModulesWithSideEffects, ...this.getModulesWithSideEffects()];
+    const modulesWithSideEffects = [...globalModulesWithSideEffects, ...this.getModulesWithSideEffects(), ...this.modulesWithSideEffects];
     const orig = this._runtimeInstance.requireModuleOrMock;
     const scope = this;
 
@@ -128,27 +136,28 @@ class NeatRuntime {
         return scope.createEmptyObj(from, modulePath);
       }
 
-      const nodeRequireModules = scope.globals[NEAT_CONFIG.NEAT_NODE_REQUIRE_MODULES] ?? [];
-      let loadedModule;
+      // TODO
+      // const nodeRequireModules = scope.globals[NEAT_CONFIG.NEAT_NODE_REQUIRE_MODULES] ?? [];
+      // let loadedModule;
 
-      if (nodeRequireModules.length > 0) {
-        const p = scope._runtimeInstance._resolveCjsModule(from, modulePath);
-        if (nodeRequireModules.some((m) => p.includes(m))) {
-          const start = Date.now();
-          if (!scope.currentProcessingNodeModule) scope.currentProcessingNodeModule = p;
-          loadedModule = require(p);
-          const end = Date.now();
-          if (scope.currentProcessingNodeModule === p && scope.globals[NEAT_CONFIG.NEAT_VERBOSE]) {
-            console.log(`\x1b[32mModule ${p} was loaded via "Node" require in ${end - start}ms`);
-            if (scope.globals[NEAT_CONFIG.NEAT_BENCHMARK]) {
-              const endInMs = scope.doBenchmarkLoad(callOriginal);
-              console.log(`\x1b[31mModule ${p} was loaded via "jest" require in ${endInMs}ms`);
-            }
-          }
-        }
-      }
+      // if (nodeRequireModules.length > 0) {
+      //   const p = scope._runtimeInstance._resolveCjsModule(from, modulePath);
+      //   if (nodeRequireModules.some((m) => p.includes(m))) {
+      //     const start = Date.now();
+      //     if (!scope.currentProcessingNodeModule) scope.currentProcessingNodeModule = p;
+      //     loadedModule = require(p);
+      //     const end = Date.now();
+      //     if (scope.currentProcessingNodeModule === p && scope.globals[NEAT_CONFIG.NEAT_VERBOSE]) {
+      //       console.log(`\x1b[32mModule ${p} was loaded via "Node" require in ${end - start}ms`);
+      //       if (scope.globals[NEAT_CONFIG.NEAT_BENCHMARK]) {
+      //         const endInMs = scope.doBenchmarkLoad(callOriginal);
+      //         console.log(`\x1b[31mModule ${p} was loaded via "jest" require in ${endInMs}ms`);
+      //       }
+      //     }
+      //   }
+      // }
 
-      if (!loadedModule) loadedModule = scope.requireModule(from, modulePath, callOriginal);
+      const loadedModule = scope.requireModule(from, modulePath, callOriginal);
 
       // proxy listen
       if (typeof loadedModule === "object") {
@@ -156,7 +165,7 @@ class NeatRuntime {
         const proxy = new Proxy(loadedModule, {
           get(target, prop, receiver) {
             // property was visited!
-            scope.cachedModules[fullPath] = true;
+            scope.cachedModules[fullPath] = undefined;
             return Reflect.get(target, prop, receiver);
           },
         });
@@ -209,7 +218,7 @@ class NeatRuntime {
     const diff = end - start;
 
     // check if we're processing a node_module
-    if (!modulePath.includes("./") && !this.processedModules.has(modulePath)) {
+    if (this.isModuleReportOn && !modulePath.includes("./") && !this.processedModules.has(modulePath)) {
       this.processedModules.set(modulePath, true);
       const origin = "node_modules";
       const report = this.loadedModulesReports.get(origin);

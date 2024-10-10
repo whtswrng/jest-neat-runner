@@ -6,12 +6,10 @@
     "url": "https://github.com/whtswrng/jest-neat-runner"
   },
   "license": "MIT",
-  "main": "./src/index.js",
-  "exports": {
-    ".": {
-      "default": "./src/index.js"
-    },
-    "./package.json": "./package.json"
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "nodemon --watch src --exec 'npm run build'"
   },
   "dependencies": {
     "@jest/console": "^29.7.0",
@@ -22,6 +20,7 @@
     "@types/node": "*",
     "chalk": "^4.0.0",
     "emittery": "^0.13.1",
+    "fs-extra": "^11.2.0",
     "graceful-fs": "^4.2.9",
     "jest-docblock": "^29.7.0",
     "jest-environment-node": "^29.7.0",
@@ -29,6 +28,7 @@
     "jest-leak-detector": "^29.7.0",
     "jest-message-util": "^29.7.0",
     "jest-resolve": "^29.7.0",
+    "jest-runner": "^29.7.0",
     "jest-runtime": "^29.7.0",
     "jest-util": "^29.7.0",
     "jest-watcher": "^29.7.0",
@@ -36,13 +36,14 @@
     "p-limit": "^3.1.0",
     "source-map-support": "0.5.13"
   },
-  "devDependencies": {
-  },
   "engines": {
     "node": "^14.15.0 || ^16.10.0 || >=18.0.0"
   },
   "publishConfig": {
     "access": "public"
   },
-  "gitHead": "4e56991693da7cd4c3730dc3579a1dd1403ee630"
+  "gitHead": "4e56991693da7cd4c3730dc3579a1dd1403ee630",
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
 }
