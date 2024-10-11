@@ -51,7 +51,7 @@ class NeatRuntime {
     this.reportInMs = this.globals[NEAT_CONFIG.NEAT_REPORT_MODULE_LOAD_ABOVE_MS];
     this.modulesWithSideEffects = this.globals[NEAT_CONFIG.NEAT_MODULES_WITH_SIDE_EFFECTS] ?? [];
 
-    if (global._NEAT_REMOVE_CACHE) {
+    if (global._NEAT_REMOVE_CACHE === this.testPath) {
       fs.writeFileSync(this.cacheFilePath, JSON.stringify({}));
     }
 

@@ -11,6 +11,7 @@ async function runTest(...args) {
 
   try {
     const obj = await _runTest(...args);
+    if(obj.failureMessage) return rerun();
     successTests++;
     return obj;
   } catch (e) {
