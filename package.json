@@ -1,6 +1,6 @@
 {
   "name": "jest-neat-runner",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/whtswrng/jest-neat-runner.git"
@@ -13,7 +13,8 @@
   ],
   "scripts": {
     "build": "node build.js",
-    "dev": "nodemon --watch src --exec 'npm run build'"
+    "dev": "nodemon --watch src --exec 'npm run build'",
+    "prepublish": "npm run build"
   },
   "dependencies": {
     "@jest/console": "^29.7.0",

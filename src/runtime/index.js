@@ -69,7 +69,14 @@ class NeatRuntime {
   }
 
   done() {
-    fs.writeFileSync(this.cacheFilePath, JSON.stringify(this.cachedModules));
+    const cachedModules = {};
+    cachedModules.__modulesWithSideEffects = this.cachedModules.__modulesWithSideEffects;
+    for (const key in this.cachedModules) {
+      // let's omit visited modules (true) in the final cache as we don't need them anymore
+      if(this.cachedModules[key] === false) cachedModules[key] = false;
+    }
+
+    fs.writeFileSync(this.cacheFilePath, JSON.stringify(cachedModules));
     if (this.reportInMs) {
       this.moduleTimerList.sort((a, b) => b.timeInMs - a.timeInMs);
       for (const m of this.moduleTimerList) {
@@ -117,6 +124,7 @@ class NeatRuntime {
 
   wrapRequireModule() {
     const modulesWithSideEffects = [...globalModulesWithSideEffects, ...this.getModulesWithSideEffects(), ...this.modulesWithSideEffects];
+    console.log('WHAT MODULES I HAVE', modulesWithSideEffects);
     const orig = this._runtimeInstance.requireModuleOrMock;
     const scope = this;
 
@@ -131,6 +139,7 @@ class NeatRuntime {
       if (scope.isRuntimeCacheOn && scope.shouldSkipLoadingModule(fullPath)) {
         if (modulesWithSideEffects.some((m) => fullPath.includes(m))) {
           // these modules have side-effects, we need to load them
+          console.log('calling original', fullPath);
           return callOriginal();
         }
         return scope.createEmptyObj(from, modulePath);
@@ -165,7 +174,7 @@ class NeatRuntime {
         const proxy = new Proxy(loadedModule, {
           get(target, prop, receiver) {
             // property was visited!
-            scope.cachedModules[fullPath] = undefined;
+            scope.cachedModules[fullPath] = true;
             return Reflect.get(target, prop, receiver);
           },
         });

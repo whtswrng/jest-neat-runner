@@ -1,5 +1,5 @@
 ## What and Why?
-We were able to get people on the moon with 64KB of memory and 43KHz CPU, and yet in 2024, I'm not able to run simple jest suite without burning all my RAM and CPU and waiting for an eternity for them to finish. This package should help you with identifying your jest's performance bottlenecks and most importantly **boost jest's performance**.
+We were able to get people on the moon with 64KB of memory and 43KHz CPU, and yet in 2024, I'm not able to run simple jest suite without burning all my RAM and CPU and waiting for an eternity for them to finish. This package should help you with identifying your jest's performance bottlenecks and most importantly **boost jest's performance** out of the box.
 
 ## How does it work?
 
@@ -17,11 +17,17 @@ module.exports = {
 };
 ```
 
-Enjoy!
+That's it!
+The first run will be slightly faster, but the power of this library kicks in on any subsequent run as it will use the created runtime cache.
 
 ## Features
+Put the configuration bellow into `globals` field in the jest config.
 
 ### Perfomance boost
+**NEAT_RUNTIME_CACHE** true/false
+Lorem ipsunm dorem lorem
+
+
 ```
 NEAT_RUNTIME_CACHE: bool,
 NEAT_TRANSFORM_CACHE: bool,
