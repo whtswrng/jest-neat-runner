@@ -73,10 +73,11 @@ class NeatRuntime {
     cachedModules.__modulesWithSideEffects = this.cachedModules.__modulesWithSideEffects;
     for (const key in this.cachedModules) {
       // let's omit visited modules (true) in the final cache as we don't need them anymore
-      if(this.cachedModules[key] === false) cachedModules[key] = false;
+      if (this.cachedModules[key] === false) cachedModules[key] = false;
     }
 
     fs.writeFileSync(this.cacheFilePath, JSON.stringify(cachedModules));
+
     if (this.reportInMs) {
       this.moduleTimerList.sort((a, b) => b.timeInMs - a.timeInMs);
       for (const m of this.moduleTimerList) {
@@ -123,7 +124,11 @@ class NeatRuntime {
   }
 
   wrapRequireModule() {
-    const modulesWithSideEffects = [...globalModulesWithSideEffects, ...this.getModulesWithSideEffects(), ...this.modulesWithSideEffects];
+    const modulesWithSideEffects = [
+      ...globalModulesWithSideEffects,
+      ...this.getModulesWithSideEffects(),
+      ...this.modulesWithSideEffects,
+    ];
     const orig = this._runtimeInstance.requireModuleOrMock;
     const scope = this;
 
@@ -169,18 +174,54 @@ class NeatRuntime {
       // proxy listen
       if (typeof loadedModule === "object") {
         if (scope.cachedModules[fullPath] === undefined) scope.cachedModules[fullPath] = false;
-        const proxy = new Proxy(loadedModule, {
-          get(target, prop, receiver) {
-            // property was visited!
-            scope.cachedModules[fullPath] = true;
-            return Reflect.get(target, prop, receiver);
-          },
-        });
-        return proxy;
+        return scope.listenObject(loadedModule, fullPath);
       }
 
       return loadedModule;
     };
+  }
+
+  listenObject(loadedModule, fullPath) {
+    const scope = this;
+    const proxy = new Proxy(loadedModule, {
+      get(target, prop, receiver) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.get(target, prop, receiver);
+      },
+      set(target, prop, value, receiver) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.set(target, prop, value, receiver);
+      },
+      has(target, prop) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.has(target, prop);
+      },
+      deleteProperty(target, prop) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.deleteProperty(target, prop);
+      },
+      apply(target, thisArg, argumentsList) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.apply(target, thisArg, argumentsList);
+      },
+      construct(target, args) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.construct(target, args);
+      },
+      defineProperty(target, prop, descriptor) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.defineProperty(target, prop, descriptor);
+      },
+      setPrototypeOf(target, proto) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.setPrototypeOf(target, proto);
+      },
+      getOwnPropertyDescriptor(target, prop) {
+        scope.cachedModules[fullPath] = true;
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+      }
+    });
+    return proxy;
   }
 
   getModulesWithSideEffects() {
