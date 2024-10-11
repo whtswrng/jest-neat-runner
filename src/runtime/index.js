@@ -138,7 +138,6 @@ class NeatRuntime {
       if (scope.isRuntimeCacheOn && scope.shouldSkipLoadingModule(fullPath)) {
         if (modulesWithSideEffects.some((m) => fullPath.includes(m))) {
           // these modules have side-effects, we need to load them
-          console.log('calling original', fullPath);
           return callOriginal();
         }
         return scope.createEmptyObj(from, modulePath);
