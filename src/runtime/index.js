@@ -124,7 +124,6 @@ class NeatRuntime {
 
   wrapRequireModule() {
     const modulesWithSideEffects = [...globalModulesWithSideEffects, ...this.getModulesWithSideEffects(), ...this.modulesWithSideEffects];
-    console.log('WHAT MODULES I HAVE', modulesWithSideEffects);
     const orig = this._runtimeInstance.requireModuleOrMock;
     const scope = this;
 
