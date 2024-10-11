@@ -4,6 +4,8 @@ In 1969, we landed people on the moon with just 64KB of memory and a 43KHz CPU, 
 This package helps you identify Jest's performance bottlenecks and, most importantly, boosts **its performance** right out of the box.
 
 # How to install
+This package supports `jest@29.x.x`.
+
 1. `npm i jest-neat-runner`
 2. Make following changes in your `jest.config.js` file
 ```
@@ -56,3 +58,6 @@ Add `NEAT_DEBUG` to the Jest config. This will prevent cache invalidation and it
 
 ### "jest_neat_runner" Warning in the Console
 Follow the steps mentioned above.
+
+# Production Readiness
+Both the runner and runtime are not drop-in replacements for the original ones. Instead, they decorate the original `jest-runner` and `jest-runtime`. With a bit of luck, no breaking changes are expected.
