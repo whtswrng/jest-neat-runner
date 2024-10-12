@@ -2,7 +2,7 @@ const Runtime = require("jest-runtime");
 const fs = require("fs");
 const path = require("path");
 
-const globalModulesWithSideEffects = ["i18n"];
+const globalModulesWithSideEffects = ["i18n", "core-js"];
 
 const NEAT_CONFIG = {
   NEAT_DEBUG: "NEAT_DEBUG",
@@ -219,7 +219,7 @@ class NeatRuntime {
       getOwnPropertyDescriptor(target, prop) {
         scope.cachedModules[fullPath] = true;
         return Reflect.getOwnPropertyDescriptor(target, prop);
-      }
+      },
     });
     return proxy;
   }
