@@ -1,6 +1,7 @@
 const Runtime = require("jest-runtime");
 const fs = require("fs");
 const path = require("path");
+const { simpleHash } = require("../utils/utils");
 
 const globalModulesWithSideEffects = ["i18n", "core-js"];
 
@@ -51,10 +52,6 @@ class NeatRuntime {
     this.reportInMs = this.globals[NEAT_CONFIG.NEAT_REPORT_MODULE_LOAD_ABOVE_MS];
     this.modulesWithSideEffects = this.globals[NEAT_CONFIG.NEAT_MODULES_WITH_SIDE_EFFECTS] ?? [];
 
-    if (global._NEAT_REMOVE_CACHE === this.testPath) {
-      fs.writeFileSync(this.cacheFilePath, JSON.stringify({}));
-    }
-
     this.oldCache = this.getOldCache();
     this.cachedModules = { ...this.oldCache };
 
@@ -64,8 +61,26 @@ class NeatRuntime {
     const origTeardown = _runtimeInstance.teardown;
     _runtimeInstance.teardown = function (...args) {
       scope.done();
+      scope.teardown();
       return origTeardown.apply(this, args);
     };
+  }
+
+  teardown() {
+    this.cachedModules = { __modulesWithSideEffects: [] };
+    this.testPath = "";
+    this.cacheFilePath = "";
+    this.oldCache = undefined;
+    this.dummyModuleCount = 0;
+    this.realModuleCount = 0;
+    this._runtimeInstance = undefined;
+    this.prevRunFailed = false;
+    this.moduleTimerList = [];
+    this.globals = undefined;
+    this.currentProcessingNodeModule = false;
+    this.transformedFileExtensions = new Map();
+    this.loadedModulesReports = new Map();
+    this.processedModules = new Map();
   }
 
   done() {
@@ -106,14 +121,16 @@ class NeatRuntime {
       const cachedF = transformedFilesCache.get(filePath);
 
       const start = Date.now();
-      const r = cachedF && scope.isTransformCacheOn ? transformedFilesCache.get(filePath) : orig.apply(this, args);
+      let r = cachedF && scope.isTransformCacheOn ? transformedFilesCache.get(filePath) : orig.apply(this, args);
       const end = Date.now();
 
       scope.storeModuleWithSideEffects(filePath, r);
 
-      const fileExtension = path.extname(filePath);
-      transformedFilesCache.set(filePath, r);
+      if(scope.isTransformCacheOn) transformedFilesCache.set(filePath, r);
 
+      if(! scope.isTransformReportOn) return r;
+
+      const fileExtension = path.extname(filePath);
       const fileExtensionReport = scope.transformedFileExtensions.get(fileExtension);
       scope.transformedFileExtensions.set(fileExtension, {
         count: (fileExtensionReport?.count ?? 0) + 1,
@@ -295,19 +312,6 @@ class NeatRuntime {
     this.dummyModuleCount++;
     return {};
   }
-}
-
-function simpleHash(str) {
-  let hash = 0;
-
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-
-  const fileName = str.split("/").pop();
-
-  return hash.toString() + "_" + fileName;
 }
 
 function getLibraryName(filePath) {

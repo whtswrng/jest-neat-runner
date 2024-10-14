@@ -1,3 +1,6 @@
+const path = require("path");
+const { simpleHash } = require("../utils/utils");
+const { writeFileSync } = require("fs");
 const _runTest = require("./_runTest").default;
 
 let successTests = 0;
@@ -8,19 +11,23 @@ async function runTest(...args) {
   const config = args[2];
   const globals = config.globals;
 
+  throw new Error('!')
+  console.log('RUNNING A FUCKING TEST!');
+  let obj;
   try {
-    const obj = await _runTest(...args);
-    if (obj.failureMessage && !globals.NEAT_DEBUG) return rerun();
+    obj = await _runTest(...args);
+    if (obj.failureMessage && !globals.NEAT_DEBUG) {
+      return rerun(config, testFile);
+    }
     successTests++;
-    if (global.gc) global.gc();
+    console.log(obj);
     return obj;
   } catch (e) {
     if (globals.NEAT_DEBUG) throw e;
-    return rerun();
+    return rerun(config, testFile);
   }
 
-  function rerun() {
-    if (global.gc) global.gc();
+  async function rerun(config, testPath, count = 3) {
     failedTests++;
 
     const total = failedTests + successTests;
@@ -31,10 +38,19 @@ async function runTest(...args) {
       );
     }
 
-    // run it again in case it failed
-    global._NEAT_REMOVE_CACHE = testFile;
-    return _runTest(...args);
+    // remove cache
+    const cacheFilePath = path.join(config.cacheDirectory, simpleHash(testPath))
+    writeFileSync(cacheFilePath, JSON.stringify({}));
+
+    console.log('TRYING TO RUN AGAIN!!');
+    const newArgs = [...args];
+    throw new Error("YEP FROM RERUN!");
+    return _runTest(...newArgs);
   }
+}
+
+async function waitFor(ms) {
+  return new Promise((res) => setTimeout(res, ms));
 }
 
 module.exports = runTest;
