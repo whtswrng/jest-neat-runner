@@ -2,8 +2,8 @@ const Runtime = require("jest-runtime");
 const fs = require("fs");
 const path = require("path");
 const { simpleHash } = require("../utils/utils");
+const globalModulesWithSideEffects = require("./modules-with-side-effects");
 
-const globalModulesWithSideEffects = ["i18n", "core-js"];
 
 const NEAT_CONFIG = {
   NEAT_DEBUG: "NEAT_DEBUG",
@@ -126,9 +126,9 @@ class NeatRuntime {
 
       scope.storeModuleWithSideEffects(filePath, r);
 
-      if(scope.isTransformCacheOn) transformedFilesCache.set(filePath, r);
+      if (scope.isTransformCacheOn) transformedFilesCache.set(filePath, r);
 
-      if(! scope.isTransformReportOn) return r;
+      if (!scope.isTransformReportOn) return r;
 
       const fileExtension = path.extname(filePath);
       const fileExtensionReport = scope.transformedFileExtensions.get(fileExtension);

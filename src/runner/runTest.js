@@ -11,8 +11,6 @@ async function runTest(...args) {
   const config = args[2];
   const globals = config.globals;
 
-  throw new Error('!')
-  console.log('RUNNING A FUCKING TEST!');
   let obj;
   try {
     obj = await _runTest(...args);
@@ -20,7 +18,6 @@ async function runTest(...args) {
       return rerun(config, testFile);
     }
     successTests++;
-    console.log(obj);
     return obj;
   } catch (e) {
     if (globals.NEAT_DEBUG) throw e;
@@ -34,17 +31,14 @@ async function runTest(...args) {
     const failPercentage = Math.round((failedTests / successTests) * 100);
     if (total > 7 && failPercentage > 40) {
       console.warn(
-        `\x1b[33mjest_neat_runner: If this message appears repeatedly after multiple runs, it indicates that the runtime cache is not functioning properly, causing Jest to run more slowly. To resolve the issue, please visit the troubleshooting section at: https://github.com/whtswrng/jest-neat-runner?tab=readme-ov-file#troubleshooting.`
+        `\x1b[33mjest_neat_runner: If this message appears repeatedly after multiple runs, it indicates that the runtime cache might not function properly as many tests failed at the first run, causing Jest to run more slowly. To resolve the issue, please visit the troubleshooting section at: https://github.com/whtswrng/jest-neat-runner?tab=readme-ov-file#troubleshooting.`
       );
     }
 
-    // remove cache
-    const cacheFilePath = path.join(config.cacheDirectory, simpleHash(testPath))
+    const cacheFilePath = path.join(config.cacheDirectory, simpleHash(testPath));
     writeFileSync(cacheFilePath, JSON.stringify({}));
 
-    console.log('TRYING TO RUN AGAIN!!');
     const newArgs = [...args];
-    throw new Error("YEP FROM RERUN!");
     return _runTest(...newArgs);
   }
 }
