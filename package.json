@@ -1,6 +1,6 @@
 {
   "name": "jest-neat-runner",
-  "version": "1.0.11",
+  "version": "1.0.13",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/whtswrng/jest-neat-runner.git"

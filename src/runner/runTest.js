@@ -5,11 +5,14 @@ const _runTest = require("./_runTest").default;
 
 let successTests = 0;
 let failedTests = 0;
+let doneTimeout = undefined;
+global._NEAT_CACHE_HIT_COUNT = 0;
 
 async function runTest(...args) {
   const testFile = args[0];
   const config = args[2];
   const globals = config.globals;
+  clearTimeout(doneTimeout);
 
   let obj;
   try {
@@ -18,9 +21,14 @@ async function runTest(...args) {
       return rerun(config, testFile);
     }
     successTests++;
+    doneTimeout = setTimeout(done, 100);
     return obj;
   } catch (e) {
-    if (globals.NEAT_DEBUG) throw e;
+    if (globals.NEAT_DEBUG) {
+      doneTimeout = setTimeout(done, 100);
+      failedTests++;
+      throw e;
+    }
     return rerun(config, testFile);
   }
 
@@ -39,8 +47,14 @@ async function runTest(...args) {
     writeFileSync(cacheFilePath, JSON.stringify({}));
 
     const newArgs = [...args];
-    return _runTest(...newArgs);
+    const o = await _runTest(...newArgs);
+    doneTimeout = setTimeout(done, 100);
+    return o;
   }
+}
+
+function done() {
+  console.log(`Test run done: ${successTests}/${successTests+failedTests} suites passed on the first run. Used cached for ${global._NEAT_CACHE_HIT_COUNT} files`);
 }
 
 async function waitFor(ms) {

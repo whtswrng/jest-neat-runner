@@ -55,6 +55,10 @@ class NeatRuntime {
     this.oldCache = this.getOldCache();
     this.cachedModules = { ...this.oldCache };
 
+    if(this.oldCache && Object.keys(this.oldCache).length > 0) {
+      global._NEAT_CACHE_HIT_COUNT++;
+    }
+
     this.wrapRequireModule();
     this.wrapTransformFile();
 
