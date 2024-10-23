@@ -44,6 +44,14 @@ describe('listenObject', () => {
     expect(result).toBe('value1');
   });
 
+  it('should return correct function values', () => {
+    const fn = (args) => args;
+    const proxyFn = listenObject(fn, mockCallback);
+    
+    expect(proxyFn('1')).toBe('1');
+    expect(mockCallback).toHaveBeenCalled();
+  });
+
 	describe('when given nested object', () => {
 
 		it('should return correct value for Map get method', () => {
