@@ -1,3 +1,5 @@
+const path = require('path');
+
 function simpleHash(str) {
   let hash = 0;
 
@@ -6,7 +8,7 @@ function simpleHash(str) {
     hash |= 0;
   }
 
-  const fileName = str.split("/").pop();
+  const fileName = path.basename(str);
 
   return hash.toString() + "_" + fileName;
 }

@@ -3,7 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const { simpleHash } = require("../utils/utils");
 const globalModulesWithSideEffects = require("./modules-with-side-effects");
-
+const ObservableSlim = require("observable-slim");
+const { listenObject } = require("../utils/listen-object");
 
 const NEAT_CONFIG = {
   NEAT_DEBUG: "NEAT_DEBUG",
@@ -44,7 +45,10 @@ class NeatRuntime {
     this._runtimeInstance = _runtimeInstance;
     this.testPath = _runtimeInstance._testPath;
     this.globals = _runtimeInstance._config.globals;
-    this.cacheFilePath = path.join(_runtimeInstance._config.cacheDirectory, simpleHash(_runtimeInstance._testPath));
+    this.cacheFilePath = path.join(
+      _runtimeInstance._config.cacheDirectory,
+      simpleHash(_runtimeInstance._testPath)
+    );
     this.isTransformReportOn = this.globals[NEAT_CONFIG.NEAT_REPORT_TRANSFORM];
     this.isTransformCacheOn = this.globals[NEAT_CONFIG.NEAT_TRANSFORM_CACHE];
     this.isModuleReportOn = this.globals[NEAT_CONFIG.NEAT_REPORT_MODULE];
@@ -55,7 +59,7 @@ class NeatRuntime {
     this.oldCache = this.getOldCache();
     this.cachedModules = { ...this.oldCache };
 
-    if(this.oldCache && Object.keys(this.oldCache).length > 0) {
+    if (this.oldCache && Object.keys(this.oldCache).length > 0) {
       global._NEAT_CACHE_HIT_COUNT++;
     }
 
@@ -125,7 +129,8 @@ class NeatRuntime {
       const cachedF = transformedFilesCache.get(filePath);
 
       const start = Date.now();
-      let r = cachedF && scope.isTransformCacheOn ? transformedFilesCache.get(filePath) : orig.apply(this, args);
+      let r =
+        cachedF && scope.isTransformCacheOn ? transformedFilesCache.get(filePath) : orig.apply(this, args);
       const end = Date.now();
 
       scope.storeModuleWithSideEffects(filePath, r);
@@ -157,15 +162,16 @@ class NeatRuntime {
       const from = args[0];
       const modulePath = args[1];
 
-      const fullPath = scope._runtimeInstance._resolveCjsModule(from, modulePath);
+      const fullPath = scope._runtimeInstance._resolveCjsModule(from, modulePath).replace(/\\/g, '/');
 
       const callOriginal = () => orig.apply(this, args);
 
+      if (modulesWithSideEffects.some((m) => fullPath.includes(m))) {
+        // these modules have side-effects, we need to load them
+        return callOriginal();
+      }
       if (scope.isRuntimeCacheOn && scope.shouldSkipLoadingModule(fullPath)) {
-        if (modulesWithSideEffects.some((m) => fullPath.includes(m))) {
-          // these modules have side-effects, we need to load them
-          return callOriginal();
-        }
+        fullPath.includes("node_modules") ? global._NODE_MODULES_SKIPPED++ : global._SRC_MODULES_SKIPPED++;
         return scope.createEmptyObj(from, modulePath);
       }
 
@@ -193,7 +199,7 @@ class NeatRuntime {
       const loadedModule = scope.requireModule(from, modulePath, callOriginal);
 
       // proxy listen
-      if (typeof loadedModule === "object") {
+      if (typeof loadedModule === "object" || typeof loadedModule === 'function') {
         if (scope.cachedModules[fullPath] === undefined) scope.cachedModules[fullPath] = false;
         return scope.listenObject(loadedModule, fullPath);
       }
@@ -203,46 +209,9 @@ class NeatRuntime {
   }
 
   listenObject(loadedModule, fullPath) {
-    const scope = this;
-    const proxy = new Proxy(loadedModule, {
-      get(target, prop, receiver) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.get(target, prop, receiver);
-      },
-      set(target, prop, value, receiver) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.set(target, prop, value, receiver);
-      },
-      has(target, prop) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.has(target, prop);
-      },
-      deleteProperty(target, prop) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.deleteProperty(target, prop);
-      },
-      apply(target, thisArg, argumentsList) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.apply(target, thisArg, argumentsList);
-      },
-      construct(target, args) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.construct(target, args);
-      },
-      defineProperty(target, prop, descriptor) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.defineProperty(target, prop, descriptor);
-      },
-      setPrototypeOf(target, proto) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.setPrototypeOf(target, proto);
-      },
-      getOwnPropertyDescriptor(target, prop) {
-        scope.cachedModules[fullPath] = true;
-        return Reflect.getOwnPropertyDescriptor(target, prop);
-      },
+    return listenObject(loadedModule, () => {
+      this.cachedModules[fullPath] = true
     });
-    return proxy;
   }
 
   getModulesWithSideEffects() {

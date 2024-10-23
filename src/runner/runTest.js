@@ -7,6 +7,8 @@ let successTests = 0;
 let failedTests = 0;
 let doneTimeout = undefined;
 global._NEAT_CACHE_HIT_COUNT = 0;
+global._NODE_MODULES_SKIPPED = 0;
+global._SRC_MODULES_SKIPPED = 0;
 
 async function runTest(...args) {
   const testFile = args[0];
@@ -54,7 +56,15 @@ async function runTest(...args) {
 }
 
 function done() {
-  console.log(`Test run done: ${successTests}/${successTests+failedTests} suites passed on the first run. Used cached for ${global._NEAT_CACHE_HIT_COUNT} files`);
+  console.log(
+    ` 📢 Jest run done: ${successTests}/${
+      successTests + failedTests
+    } suites passed on the first run. 
+    Used neat cache for ${global._NEAT_CACHE_HIT_COUNT} file(s).
+    Node modules skipped: ${global._NODE_MODULES_SKIPPED}.
+    Source modules skipped: ${global._SRC_MODULES_SKIPPED}.
+    `
+  );
 }
 
 async function waitFor(ms) {
