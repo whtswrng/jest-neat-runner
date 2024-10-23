@@ -1,4 +1,4 @@
-![Jest Speed](./assets/jest.webp)
+![Jest Speed](./assets/jest.png)
 # What and Why?
 In 1969, we landed people on the moon with just 64KB of memory and a 43KHz CPU, yet in 2024, I can't run a simple Jest suite without maxing out my RAM and CPU, and waiting forever for it to finish.
 
