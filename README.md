@@ -31,6 +31,7 @@ Put the configuration below into the `globals` field in the Jest config.
 It tracks the real runtime usage of all modules (per test file) and stores dependencies that we do not need for subsequent test runs. This significantly improves the performance speed.
 
 **Example**
+
 We have a utils file like this
 ```
 import _ from 'lodash';
@@ -65,7 +66,7 @@ Ran all test suites matching /src\\tests/i.
     Node modules skipped: 26.
     Source modules skipped: 0.
 ```
-By omitting large modules like mui and date-fns in subsequent test runs, performance improved by 100%.
+By omitting large modules like mui and date-fns in subsequent test runs, performance improved by 100%. Make sure to store the jest's cache directory on the CI if you want to improve your pipeline's performance. 
 
 
 **Caveat**: I've tested it on couple of small projects and one enterprise (more than 2500 tests suites) and it worked. That being said, it will not work correctly when you depend on modules that mutates the global state. These modules need to be explicitly stated in the "NEAT_MODULES_WITH_SIDE_EFFECTS" list, otherwise it'll not work.
